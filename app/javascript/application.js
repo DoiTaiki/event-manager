@@ -4,18 +4,30 @@ import "./controllers"
 import React, { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './components/App';
-// Track React root instance to prevent memory leaks
+
 let reactRoot = null;
 let isInitialized = false;
+let turboListenersSetup = false;
 
+/**
+ * Cleans up the React root instance to prevent memory leaks
+ */
 function cleanupReact() {
   if (reactRoot) {
-    reactRoot.unmount();
+    try {
+      reactRoot.unmount();
+    } catch (error) {
+      console.warn('Error during React root unmount:', error);
+    }
     reactRoot = null;
   }
   isInitialized = false;
 }
 
+/**
+ * Initializes the React application
+ * Prevents duplicate initialization and handles errors gracefully
+ */
 function initializeReact() {
   // Prevent duplicate initialization
   if (isInitialized) {
@@ -23,38 +35,38 @@ function initializeReact() {
   }
 
   const container = document.getElementById('root');
-
   if (!container) {
-    console.error('Root element not found');
+    console.error('Root element with id "root" not found');
     return;
   }
 
-  // Clean up any existing root before creating a new one
-  cleanupReact();
-
-  reactRoot = createRoot(container);
-  reactRoot.render(
-    <StrictMode>
-      <App />
-    </StrictMode>
-  );
-
-  isInitialized = true;
+  try {
+    reactRoot = createRoot(container);
+    reactRoot.render(
+      <StrictMode>
+        <App />
+      </StrictMode>
+    );
+    isInitialized = true;
+  } catch (error) {
+    console.error('Failed to initialize React application:', error);
+    cleanupReact();
+  }
 }
 
-// Clean up React root before Turbo caches the page
-document.addEventListener('turbo:before-cache', cleanupReact);
-
-// Initialize React on Turbo page loads (including initial load)
-document.addEventListener('turbo:load', initializeReact);
+// Setup Turbo event listeners (only once to prevent duplicates)
+if (!turboListenersSetup) {
+  document.addEventListener('turbo:before-cache', cleanupReact);
+  document.addEventListener('turbo:load', initializeReact);
+  turboListenersSetup = true;
+}
 
 // Handle initial page load for non-Turbo navigation
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializeReact);
-} else {
-  // DOMContentLoaded has already fired, but wait for turbo:load if Turbo is enabled
-  // If Turbo is not enabled, initialize immediately
-  if (typeof Turbo === 'undefined') {
+// Turbo-enabled pages will be initialized via turbo:load event
+if (typeof Turbo === 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeReact, { once: true });
+  } else {
     initializeReact();
   }
 }
