@@ -1,5 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
+import { Link } from 'react-router-dom';
 
 const EventList = ({ events }) => {
   const renderEvents = (eventArray) => {
@@ -26,9 +27,11 @@ const EventList = ({ events }) => {
 
     return sortedEvents.map((event) => (
       <li key={event.id}>
-        {event.event_date || 'No date'}
-        {' - '}
-        {event.event_type}
+        <Link to={`/events/${event.id}`}>
+          {event.event_date}
+          {' - '}
+          {event.event_type}
+        </Link>
       </li>
     ));
   };
