@@ -10,7 +10,12 @@ const Event = ({ events }) => {
     return (
       <>
         <h2>Event not found</h2>
-        <p>The event with ID {id} could not be found.</p>
+        <p>
+          The event with ID
+          {id}
+          {' '}
+          could not be found.
+        </p>
       </>
     );
   }

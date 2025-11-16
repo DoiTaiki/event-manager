@@ -45,7 +45,11 @@ class Api::EventsController < ApplicationController
   end
 
   def event_params
-    params.require(:event).permit(
+    # Only use params[:event] to avoid top-level parameters
+    # Rails may parse JSON and show top-level params in logs, but we only use :event
+    # This ensures we only process the nested event hash, ignoring any top-level params
+    event_data = params.require(:event)
+    event_data.permit(
       :event_type,
       :event_date,
       :title,
