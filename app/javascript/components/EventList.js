@@ -12,8 +12,8 @@ const EventList = ({ events }) => {
       const dateB = b.event_date ? new Date(b.event_date) : null;
 
       // Validate dates to prevent NaN from invalid date strings
-      const isValidDateA = dateA && !isNaN(dateA.getTime());
-      const isValidDateB = dateB && !isNaN(dateB.getTime());
+      const isValidDateA = dateA && !Number.isNaN(dateA.getTime());
+      const isValidDateB = dateB && !Number.isNaN(dateB.getTime());
 
       // Handle null/undefined/invalid dates: place them at the end
       // This prevents NaN comparisons and ensures predictable sort order
