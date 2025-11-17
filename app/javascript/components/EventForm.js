@@ -1,30 +1,56 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, {
+  useState, useRef, useEffect, useCallback,
+} from 'react';
+import { useParams } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import Pikaday from 'pikaday';
 import 'pikaday/css/pikaday.css';
 import { isEmptyObject, validateEvent, formatDate } from '../helpers/helpers';
 
-const EventForm = ({ onSave }) => {
-  const [event, setEvent] = useState({
-    event_type: '',
-    event_date: '',
-    title: '',
-    speaker: '',
-    host: '',
-    published: false,
-  });
+const EventForm = ({ events, onSave }) => {
+  const { id } = useParams();
+
+  const initialEventState = useCallback(
+    () => {
+      const defaults = {
+        event_type: '',
+        event_date: '',
+        title: '',
+        speaker: '',
+        host: '',
+        published: false,
+      };
+
+      const currEvent = id
+        ? events.find((e) => e.id === Number(id)) : {};
+
+      return { ...defaults, ...currEvent };
+    },
+    [events, id],
+  );
+
+  const [event, setEvent] = useState(() => initialEventState());
 
   const [formErrors, setFormErrors] = useState({});
 
   const dateInput = useRef(null);
 
-  const updateEvent = (key, value) => {
+  const updateEvent = useCallback((key, value) => {
     setEvent((prevEvent) => ({ ...prevEvent, [key]: value }));
-  };
+  }, []);
 
   useEffect(() => {
+    setEvent(initialEventState());
+  }, [events, id, initialEventState]);
+
+  useEffect(() => {
+    if (!dateInput.current) {
+      return undefined;
+    }
+
     const p = new Pikaday({
       field: dateInput.current,
+      toString: (date) => formatDate(date),
       onSelect: (date) => {
         const formattedDate = formatDate(date);
         dateInput.current.value = formattedDate;
@@ -33,7 +59,7 @@ const EventForm = ({ onSave }) => {
     });
 
     return () => p.destroy();
-  }, []);
+  }, [id, updateEvent]);
 
   const handleInputChange = (e) => {
     const { target } = e;
@@ -163,5 +189,20 @@ const EventForm = ({ onSave }) => {
 export default EventForm;
 
 EventForm.propTypes = {
+  events: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.number.isRequired,
+      event_type: PropTypes.string.isRequired,
+      event_date: PropTypes.string.isRequired,
+      title: PropTypes.string.isRequired,
+      speaker: PropTypes.string.isRequired,
+      host: PropTypes.string.isRequired,
+      published: PropTypes.bool.isRequired,
+    }),
+  ),
   onSave: PropTypes.func.isRequired,
+};
+
+EventForm.defaultProps = {
+  events: [],
 };
