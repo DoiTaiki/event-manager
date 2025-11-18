@@ -1,7 +1,7 @@
 import React, {
   useState, useRef, useEffect, useCallback,
 } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import Pikaday from 'pikaday';
 import 'pikaday/css/pikaday.css';
@@ -96,12 +96,14 @@ const EventForm = ({ events, onSave }) => {
       onSave(event);
     }
   };
+  const cancelURL = event.id ? `/events/${event.id}` : '/events';
+  const title = event.id ? `${event.event_date} - ${event.event_type}` : 'New Event';
 
   return (
     <section>
       {renderErrors()}
 
-      <h2>New Event</h2>
+      <h2>{title}</h2>
       <form className="eventForm" onSubmit={handleSubmit}>
         <div>
           <label htmlFor="event_type">
@@ -180,6 +182,7 @@ const EventForm = ({ events, onSave }) => {
         </div>
         <div className="form-actions">
           <button type="submit">Save</button>
+          <Link to={cancelURL}>Cancel</Link>
         </div>
       </form>
     </section>
