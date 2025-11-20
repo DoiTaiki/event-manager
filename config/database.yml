@@ -35,18 +35,22 @@ test:
   primary:
     <<: *default
     database: <%= ENV.fetch("DB_NAME") { "event_manager_test" } %>
+    socket: <%= ENV["DB_SOCKET"] || nil %>
   cache:
     <<: *default
     database: <%= ENV.fetch("DB_NAME") { "event_manager_test" } %>
     migrations_paths: db/cache_migrate
+    socket: <%= ENV["DB_SOCKET"] || nil %>
   queue:
     <<: *default
     database: <%= ENV.fetch("DB_NAME") { "event_manager_test" } %>
     migrations_paths: db/queue_migrate
+    socket: <%= ENV["DB_SOCKET"] || nil %>
   cable:
     <<: *default
     database: <%= ENV.fetch("DB_NAME") { "event_manager_test" } %>
     migrations_paths: db/cable_migrate
+    socket: <%= ENV["DB_SOCKET"] || nil %>
 
 
 # Production database configuration for Aurora MySQL
