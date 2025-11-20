@@ -1,11 +1,19 @@
 #!/usr/bin/env sh
 
-if gem list --no-installed --exact --silent foreman; then
-  echo "Installing foreman..."
-  gem install foreman
-fi
+# Add Ruby bin directory to PATH if not already present
+# Check current user's home, and also /home/vscode if running as root
+for HOME_DIR in "$HOME" "/home/vscode"; do
+  if [ -d "$HOME_DIR/.local/share/mise/installs/ruby" ]; then
+    # Find the Ruby version directory and use its bin subdirectory
+    RUBY_VERSION_DIR=$(find "$HOME_DIR/.local/share/mise/installs/ruby" -maxdepth 1 -type d -name "[0-9]*" | sort -V | tail -1)
+    if [ -n "$RUBY_VERSION_DIR" ] && [ -d "$RUBY_VERSION_DIR/bin" ]; then
+      export PATH="$RUBY_VERSION_DIR/bin:$PATH"
+      break
+    fi
+  fi
+done
 
 # Default to port 3000 if not specified
 export PORT="${PORT:-3000}"
 
-exec foreman start -f Procfile.dev --env /dev/null "$@"
+exec bundle exec foreman start -f Procfile.dev --env /dev/null "$@"
