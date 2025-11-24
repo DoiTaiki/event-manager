@@ -2,6 +2,13 @@ class Event < ApplicationRecord
   # Protect database-managed fields from user modification
   attr_readonly :id
 
+  # Validations
+  validates :event_type, presence: true
+  validates :event_date, presence: true
+  validates :title, presence: true
+  validates :speaker, presence: true
+  validates :host, presence: true
+
   # Prevent user from setting timestamps directly
   # Rails will manage these automatically
   before_validation :clear_timestamps_from_params, on: [ :create, :update ]

@@ -1,17 +1,33 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
 one:
-  event_type: MyString
-  event_date: 2025-11-14
-  title: MyText
-  speaker: MyString
-  host: MyString
-  published: false
+  event_type: Conference
+  event_date: 2025-12-15
+  title: Ruby Conference 2025
+  speaker: Keynote Speaker
+  host: Ruby Association
+  published: true
 
 two:
-  event_type: MyString
-  event_date: 2025-11-14
-  title: MyText
-  speaker: MyString
-  host: MyString
+  event_type: Workshop
+  event_date: 2025-12-20
+  title: Rails Workshop for Beginners
+  speaker: Workshop Instructor
+  host: Basecamp
   published: false
+
+three:
+  event_type: Meetup
+  event_date: 2026-01-10
+  title: Local Ruby Meetup
+  speaker: Community Speaker
+  host: Tech Community
+  published: true
+
+four:
+  event_type: Conference
+  event_date: 2026-02-01
+  title: Web Development Summit
+  speaker: Panel Speakers
+  host: Tech Corp
+  published: true
