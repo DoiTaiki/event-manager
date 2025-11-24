@@ -49,3 +49,6 @@
 # Ignore Docker-related files
 /.dockerignore
 /Dockerfile*
+
+# Ignore CloudFormation files
+/rails-ecs-codepipeline-cf.yaml

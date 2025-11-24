@@ -36,7 +36,7 @@ Parameters:
     Type: String
     AllowedPattern: ^[a-zA-Z][a-zA-Z0-9]*$
     Description: 'Application name that will be used as a prefix for all AWS resources (VPC, RDS, ECS, etc.). Must start with a letter and contain only letters and numbers. Example: MyApp, ProductionApp'
-    Default: CodePipelineTutorial
+    Default: EventManager
   RailsMasterKey:
     Type: String
     Description: 'Rails master key for encrypting credentials and session data. Find this in your Rails app at config/master.key or generate with "rails credentials:edit". IMPORTANT: Keep this secret secure and never commit it to version control.'
@@ -45,7 +45,7 @@ Parameters:
   DatabaseUsername:
     Type: String
     AllowedPattern: ^[a-zA-Z][a-zA-Z0-9_]{0,15}$
-    Default: admin
+    Default: root
     Description: 'Database administrator username for Aurora MySQL. Must be 1-16 characters, start with a letter, and contain only letters, numbers, and underscores. The password will be automatically generated and stored in AWS Secrets Manager.'
   DatabaseSnapshotIdentifier:
     Type: String
@@ -67,7 +67,7 @@ Parameters:
   ECRRepositoryName:
     Type: String
     AllowedPattern: ^[a-z0-9]+(?:[._-][a-z0-9]+)*$
-    Default: code-pipeline-tutorial-repo
+    Default: event-manager-repo
     Description: 'Name of the Amazon ECR repository where Docker images will be stored. Use lowercase letters, numbers, dots, underscores, and hyphens only. Example: my-app-repo, production-images'
   AccessLogsBucketExists:
     Type: String
@@ -86,7 +86,7 @@ Parameters:
     Description: "Set to 'no' for the first deployment (when no Docker image exists yet). After CodePipeline successfully builds and pushes your first image to ECR, update this to 'yes' to enable the ECS service. This prevents deployment failures when the image doesn't exist yet."
   GitHubRepo:
     Type: String
-    Default: DoiTaiki/code_pipeline_tutorial
+    Default: DoiTaiki/event-manager
     Description: 'GitHub repository in the format "owner/repository-name". This is the repository that CodePipeline will monitor for code changes. Example: myusername/my-rails-app, company/production-app'
   GitHubBranch:
     Type: String
@@ -537,48 +537,48 @@ Resources:
           def lambda_handler(event, context):
               try:
                   rds = boto3.client('rds')
-                  
+
                   # Get parameters from CloudFormation
                   source_cluster = event['ResourceProperties']['SourceClusterIdentifier']
-                  
+
                   response_data = {}
-                  
+
                   if event['RequestType'] == 'Delete':
                       # Nothing to do on delete
                       cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data)
                       return
-                  
+
                   # List snapshots for the source cluster
                   snapshots_response = rds.describe_db_cluster_snapshots(
                       DBClusterIdentifier=source_cluster,
                       SnapshotType='manual'
                   )
-                  
+
                   snapshots = snapshots_response['DBClusterSnapshots']
-                  
+
                   if not snapshots:
                       raise Exception(f"No manual snapshots found for cluster {source_cluster}")
-                  
+
                   # Filter only available snapshots
                   available_snapshots = [s for s in snapshots if s['Status'] == 'available']
-                  
+
                   if not available_snapshots:
                       raise Exception(f"No available manual snapshots found for cluster {source_cluster}")
-                  
+
                   # Sort by creation time and get the latest
-                  latest_snapshot = sorted(available_snapshots, 
-                                         key=lambda x: x['SnapshotCreateTime'], 
+                  latest_snapshot = sorted(available_snapshots,
+                                         key=lambda x: x['SnapshotCreateTime'],
                                          reverse=True)[0]
-                  
+
                   # Return the snapshot identifier
                   response_data['LatestSnapshotId'] = latest_snapshot['DBClusterSnapshotIdentifier']
                   response_data['SnapshotCreateTime'] = latest_snapshot['SnapshotCreateTime'].isoformat()
                   response_data['SnapshotStatus'] = latest_snapshot['Status']
-                  
+
                   print(f"Found latest snapshot: {response_data['LatestSnapshotId']}")
-                  
+
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data)
-                  
+
               except Exception as e:
                   print(f"Error: {str(e)}")
                   cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
@@ -863,26 +863,26 @@ Resources:
 
           def handler(event, context):
               print(f"Event: {json.dumps(event)}")
-              
+
               try:
                   if event['RequestType'] in ['Create', 'Update']:
                       route53_domains = boto3.client('route53domains', region_name='us-east-1')
                       route53 = boto3.client('route53')
-                      
+
                       domain_name = event['ResourceProperties']['DomainName']
                       hosted_zone_id = event['ResourceProperties']['HostedZoneId']
-                      
+
                       # Get nameservers from hosted zone
                       print(f"Getting nameservers for hosted zone: {hosted_zone_id}")
                       response = route53.get_hosted_zone(Id=hosted_zone_id)
                       nameservers = response['DelegationSet']['NameServers']
                       print(f"Hosted zone nameservers: {nameservers}")
-                      
+
                       # Get current domain nameservers
                       domain_info = route53_domains.get_domain_detail(DomainName=domain_name)
                       current_nameservers = [ns['Name'] for ns in domain_info['Nameservers']]
                       print(f"Current domain nameservers: {current_nameservers}")
-                      
+
                       # Check if update is needed
                       if set(nameservers) != set(current_nameservers):
                           print("Updating domain nameservers...")
@@ -893,7 +893,7 @@ Resources:
                           print("Nameservers updated successfully")
                       else:
                           print("Nameservers already match, no update needed")
-                      
+
                       cfnresponse.send(event, context, cfnresponse.SUCCESS, {
                           'HostedZoneNameServers': nameservers,
                           'DomainNameServers': nameservers,
@@ -901,7 +901,7 @@ Resources:
                       })
                   else:
                       cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
-                      
+
               except Exception as e:
                   print(f"Error: {str(e)}")
                   cfnresponse.send(event, context, cfnresponse.FAILED, {
@@ -1193,7 +1193,7 @@ Resources:
           Image: !If
             - UseECRImage
             - !GetAtt 'ECRRepository.RepositoryUri'
-            - nginx:latest
+            - public.ecr.aws/docker/library/nginx:latest
           Essential: true
           LogConfiguration:
             Options:
@@ -1208,13 +1208,18 @@ Resources:
           PortMappings:
             - ContainerPort: !If [UseECRImage, 3000, 80]
               Protocol: tcp
-              HostPort: !If [UseECRImage, 3000, 80]
               Name: !Sub 'port-3000-tcp'
           Environment:
             - Name: CODE_PIPELINE_TUTORIAL_DATABASE_DBNAME
               Value: !Sub '${AppName}_db'
             - Name: DB_HOST
               Value: !GetAtt 'DatabaseCluster.Endpoint.Address'
+            - Name: HTTP_PORT
+              Value: 3000
+            - Name: TARGET_PORT
+              Value: 3001
+            - Name: PORT
+              Value: 3001
       Cpu: '256'
       RequiresCompatibilities:
         - FARGATE

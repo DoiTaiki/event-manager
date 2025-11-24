@@ -5,28 +5,27 @@ default: &default
   adapter: mysql2
   encoding: utf8mb4
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
-  host: <%= ENV.fetch("DB_HOST") { "mysql" } %>
-  username: <%= ENV.fetch("DB_USERNAME") { "root" } %>
-  password: <%= ENV.fetch("DB_PASSWORD") { "password" } %>
-  port: <%= ENV.fetch("DB_PORT") { 3306 } %>
-  reconnect: true
+  username: root
+  password: password
+  host: <%= ENV.fetch("DB_HOST") { "127.0.0.1" } %>
 
 development:
   primary:
     <<: *default
-    database: <%= ENV.fetch("DB_NAME") { "event_manager_development" } %>
-  cache:
-    <<: *default
-    database: <%= ENV.fetch("DB_NAME") { "event_manager_development" } %>
-    migrations_paths: db/cache_migrate
-  queue:
-    <<: *default
-    database: <%= ENV.fetch("DB_NAME") { "event_manager_development" } %>
-    migrations_paths: db/queue_migrate
-  cable:
-    <<: *default
-    database: <%= ENV.fetch("DB_NAME") { "event_manager_development" } %>
-    migrations_paths: db/cable_migrate
+    database: event_manager_development
+# development:
+#   primary: &primary_development
+#     <<: *default
+#     database: event_manager_development
+#   cache:
+#     <<: *primary_development
+#     migrations_paths: db/cache_migrate
+#   queue:
+#     <<: *primary_development
+#     migrations_paths: db/queue_migrate
+#   cable:
+#     <<: *primary_development
+#     migrations_paths: db/cable_migrate
 
 # Warning: The database defined as "test" will be erased and
 # re-generated from your development database when you run "rake".
@@ -34,19 +33,21 @@ development:
 test:
   primary:
     <<: *default
-    database: <%= ENV.fetch("DB_NAME") { "event_manager_test" } %>
-  cache:
-    <<: *default
-    database: <%= ENV.fetch("DB_NAME") { "event_manager_test" } %>
-    migrations_paths: db/cache_migrate
-  queue:
-    <<: *default
-    database: <%= ENV.fetch("DB_NAME") { "event_manager_test" } %>
-    migrations_paths: db/queue_migrate
-  cable:
-    <<: *default
-    database: <%= ENV.fetch("DB_NAME") { "event_manager_test" } %>
-    migrations_paths: db/cable_migrate
+    database: event_manager_test
+# test:
+#   primary: &primary_test
+#     <<: *default
+#     database: event_manager_test
+#     socket: <%= ENV["DB_SOCKET"] || nil %>
+#   cache:
+#     <<: *primary_test
+#     migrations_paths: db/cache_migrate
+#   queue:
+#     <<: *primary_test
+#     migrations_paths: db/queue_migrate
+#   cable:
+#     <<: *primary_test
+#     migrations_paths: db/cable_migrate
 
 
 # Production database configuration for Aurora MySQL
@@ -55,46 +56,29 @@ test:
 # but manage different tables within it
 # Falls back to development defaults if production env vars are not set (for local testing)
 production:
-  primary:
-    adapter: mysql2
-    encoding: utf8mb4
-    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
-    host: <%= ENV["DB_HOST"] || ENV["CODE_PIPELINE_TUTORIAL_DATABASE_HOST"] || "localhost" %>
-    username: <%= ENV["CODE_PIPELINE_TUTORIAL_DATABASE_USERNAME"] || ENV["DB_USERNAME"] || "root" %>
-    password: <%= ENV["CODE_PIPELINE_TUTORIAL_DATABASE_PASSWORD"] || ENV["DB_PASSWORD"] || "" %>
-    database: <%= ENV["CODE_PIPELINE_TUTORIAL_DATABASE_DBNAME"] || ENV["DB_NAME"] || "event_manager_production" %>
-    port: <%= ENV.fetch("DB_PORT") { 3306 } %>
-    reconnect: true
+  primary: &primary_production
+    <<: *default
+    database: <%= ENV["CODE_PIPELINE_TUTORIAL_DATABASE_DBNAME"] %>
+    username: <%= ENV["CODE_PIPELINE_TUTORIAL_DATABASE_USERNAME"] %>
+    password: <%= ENV["CODE_PIPELINE_TUTORIAL_DATABASE_PASSWORD"] %>
   cache:
-    adapter: mysql2
-    encoding: utf8mb4
-    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
-    host: <%= ENV["DB_HOST"] || ENV["CODE_PIPELINE_TUTORIAL_DATABASE_HOST"] || "localhost" %>
-    username: <%= ENV["CODE_PIPELINE_TUTORIAL_DATABASE_USERNAME"] || ENV["DB_USERNAME"] || "root" %>
-    password: <%= ENV["CODE_PIPELINE_TUTORIAL_DATABASE_PASSWORD"] || ENV["DB_PASSWORD"] || "" %>
-    database: <%= ENV["CODE_PIPELINE_TUTORIAL_DATABASE_DBNAME"] || ENV["DB_NAME"] || "event_manager_production" %>
-    port: <%= ENV.fetch("DB_PORT") { 3306 } %>
-    reconnect: true
+    <<: *primary_production
+    database: event_manager_production_cache
     migrations_paths: db/cache_migrate
   queue:
-    adapter: mysql2
-    encoding: utf8mb4
-    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
-    host: <%= ENV["DB_HOST"] || ENV["CODE_PIPELINE_TUTORIAL_DATABASE_HOST"] || "localhost" %>
-    username: <%= ENV["CODE_PIPELINE_TUTORIAL_DATABASE_USERNAME"] || ENV["DB_USERNAME"] || "root" %>
-    password: <%= ENV["CODE_PIPELINE_TUTORIAL_DATABASE_PASSWORD"] || ENV["DB_PASSWORD"] || "" %>
-    database: <%= ENV["CODE_PIPELINE_TUTORIAL_DATABASE_DBNAME"] || ENV["DB_NAME"] || "event_manager_production" %>
-    port: <%= ENV.fetch("DB_PORT") { 3306 } %>
-    reconnect: true
+    <<: *primary_production
+    database: event_manager_production_queue
     migrations_paths: db/queue_migrate
   cable:
-    adapter: mysql2
-    encoding: utf8mb4
-    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
-    host: <%= ENV["DB_HOST"] || ENV["CODE_PIPELINE_TUTORIAL_DATABASE_HOST"] || "localhost" %>
-    username: <%= ENV["CODE_PIPELINE_TUTORIAL_DATABASE_USERNAME"] || ENV["DB_USERNAME"] || "root" %>
-    password: <%= ENV["CODE_PIPELINE_TUTORIAL_DATABASE_PASSWORD"] || ENV["DB_PASSWORD"] || "" %>
-    database: <%= ENV["CODE_PIPELINE_TUTORIAL_DATABASE_DBNAME"] || ENV["DB_NAME"] || "event_manager_production" %>
-    port: <%= ENV.fetch("DB_PORT") { 3306 } %>
-    reconnect: true
+    <<: *primary_production
+    database: event_manager_production_cable
     migrations_paths: db/cable_migrate
+  # cache:
+  #   <<: *primary_production
+  #   migrations_paths: db/cache_migrate
+  # queue:
+  #   <<: *primary_production
+  #   migrations_paths: db/queue_migrate
+  # cable:
+  #   <<: *primary_production
+  #   migrations_paths: db/cable_migrate
