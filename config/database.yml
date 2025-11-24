@@ -10,44 +10,36 @@ default: &default
   host: <%= ENV.fetch("DB_HOST") { "127.0.0.1" } %>
 
 development:
-  primary:
+  primary: &primary_development
     <<: *default
     database: event_manager_development
-# development:
-#   primary: &primary_development
-#     <<: *default
-#     database: event_manager_development
-#   cache:
-#     <<: *primary_development
-#     migrations_paths: db/cache_migrate
-#   queue:
-#     <<: *primary_development
-#     migrations_paths: db/queue_migrate
-#   cable:
-#     <<: *primary_development
-#     migrations_paths: db/cable_migrate
+  cache:
+    <<: *primary_development
+    migrations_paths: db/cache_migrate
+  queue:
+    <<: *primary_development
+    migrations_paths: db/queue_migrate
+  cable:
+    <<: *primary_development
+    migrations_paths: db/cable_migrate
 
 # Warning: The database defined as "test" will be erased and
 # re-generated from your development database when you run "rake".
 # Do not set this db to the same as development or production.
 test:
-  primary:
+  primary: &primary_test
     <<: *default
     database: event_manager_test
-# test:
-#   primary: &primary_test
-#     <<: *default
-#     database: event_manager_test
-#     socket: <%= ENV["DB_SOCKET"] || nil %>
-#   cache:
-#     <<: *primary_test
-#     migrations_paths: db/cache_migrate
-#   queue:
-#     <<: *primary_test
-#     migrations_paths: db/queue_migrate
-#   cable:
-#     <<: *primary_test
-#     migrations_paths: db/cable_migrate
+    socket: <%= ENV["DB_SOCKET"] || nil %>
+  cache:
+    <<: *primary_test
+    migrations_paths: db/cache_migrate
+  queue:
+    <<: *primary_test
+    migrations_paths: db/queue_migrate
+  cable:
+    <<: *primary_test
+    migrations_paths: db/cable_migrate
 
 
 # Production database configuration for Aurora MySQL
@@ -58,27 +50,15 @@ test:
 production:
   primary: &primary_production
     <<: *default
-    database: <%= ENV["CODE_PIPELINE_TUTORIAL_DATABASE_DBNAME"] %>
-    username: <%= ENV["CODE_PIPELINE_TUTORIAL_DATABASE_USERNAME"] %>
-    password: <%= ENV["CODE_PIPELINE_TUTORIAL_DATABASE_PASSWORD"] %>
+    database: <%= ENV["DB_NAME"] %>
+    username: <%= ENV["DB_USERNAME"] %>
+    password: <%= ENV["DB_PASSWORD"] %>
   cache:
     <<: *primary_production
-    database: event_manager_production_cache
     migrations_paths: db/cache_migrate
   queue:
     <<: *primary_production
-    database: event_manager_production_queue
     migrations_paths: db/queue_migrate
   cable:
     <<: *primary_production
-    database: event_manager_production_cable
     migrations_paths: db/cable_migrate
-  # cache:
-  #   <<: *primary_production
-  #   migrations_paths: db/cache_migrate
-  # queue:
-  #   <<: *primary_production
-  #   migrations_paths: db/queue_migrate
-  # cable:
-  #   <<: *primary_production
-  #   migrations_paths: db/cable_migrate

@@ -1186,9 +1186,9 @@ Resources:
         - Secrets:
             - Name: RAILS_MASTER_KEY
               ValueFrom: !Sub '${RailsMasterKeySecret}:RAILS_MASTER_KEY::'
-            - Name: CODE_PIPELINE_TUTORIAL_DATABASE_USERNAME
+            - Name: DB_USERNAME
               ValueFrom: !Sub '${DatabaseCluster.MasterUserSecret.SecretArn}:username::'
-            - Name: CODE_PIPELINE_TUTORIAL_DATABASE_PASSWORD
+            - Name: DB_PASSWORD
               ValueFrom: !Sub '${DatabaseCluster.MasterUserSecret.SecretArn}:password::'
           Image: !If
             - UseECRImage
@@ -1210,7 +1210,7 @@ Resources:
               Protocol: tcp
               Name: !Sub 'port-3000-tcp'
           Environment:
-            - Name: CODE_PIPELINE_TUTORIAL_DATABASE_DBNAME
+            - Name: DB_NAME
               Value: !Sub '${AppName}_db'
             - Name: DB_HOST
               Value: !GetAtt 'DatabaseCluster.Endpoint.Address'
