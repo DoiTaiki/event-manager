@@ -94,6 +94,6 @@ USER 1000:1000
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]
 
 # Start server via Thruster by default, this can be overwritten at runtime
-# Thruster respects the PORT environment variable (set to 3000 in CloudFormation)
+# Thruster respects the PORT environment variable (set to 3001 in CloudFormation)
 EXPOSE 3000
 CMD ["./bin/thrust", "./bin/rails", "server"]
