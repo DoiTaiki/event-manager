@@ -52,3 +52,6 @@
 
 # Ignore CloudFormation files
 /rails-ecs-codepipeline-cf.yaml
+
+# Ignore architecture diagram
+/aws-architecture-diagram.md
