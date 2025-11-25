@@ -81,6 +81,7 @@ GitHub → CodePipeline → CodeBuild → ECR → ECS
 #### AWS デプロイ
 
 - **AWS CLI**: インストール・設定済み
+- **ドメイン**: Route 53 でホストゾーンを作成するか、既存のドメインを Route 53 に移管済みであること
 - **CloudFormation テンプレート**: `rails-ecs-codepipeline-cf.yaml` のパラメータを準備
 - **CodeStar Connection**: GitHub アカウントとの接続を事前に作成
 
@@ -278,6 +279,8 @@ Dev Container では以下が自動セットアップされます：
 ### Deployment instructions
 
 #### AWS へのデプロイ
+
+**重要**: AWS にデプロイする際には、予めドメインを登録しておく必要があります。Route 53 でホストゾーンを作成するか、既存のドメインを Route 53 に移管してください。
 
 1. **CloudFormation テンプレートの準備**
 
