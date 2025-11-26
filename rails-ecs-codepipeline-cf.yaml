@@ -648,9 +648,7 @@ Resources:
       ServerlessV2ScalingConfiguration:
         MinCapacity: 0
         SecondsUntilAutoPause: 300
-        MaxCapacity: 16
-      PerformanceInsightsEnabled: true
-      PerformanceInsightsRetentionPeriod: 7
+        MaxCapacity: 2
       DBSubnetGroupName: !Ref 'DatabaseSubnetGroup'
       EnableCloudwatchLogsExports:
         - audit

@@ -61,7 +61,8 @@ GitHub → CodePipeline → CodeBuild → ECR → ECS
 - **ネットワーク**: VPC、パブリック/プライベートサブネット（マルチAZ）
 - **コンピューティング**: ECS Fargate で Rails アプリケーションを実行
 - **ロードバランサー**: Application Load Balancer（HTTPS対応）
-- **データベース**: Aurora MySQL Serverless v2（マルチAZ構成）
+- **データベース**: Aurora MySQL Serverless v2（マルチAZ構成、約12〜13分の非アクティブで自動ポーズし、復帰は約15秒）
+- **データベース監視**: CloudWatch Database Insights(Standard) によるパフォーマンス監視
 - **CI/CD**: CodePipeline + CodeBuild による自動デプロイ
 - **ストレージ**: ECR（Docker イメージ）、S3（ログ・アーティファクト）
 - **セキュリティ**: Secrets Manager、VPC エンドポイント、セキュリティグループ
@@ -176,6 +177,14 @@ bin/dev
 - **Aurora MySQL**: Serverless v2（マルチAZ構成）
 - **ECS Fargate**: コンテナ実行環境
 - **Application Load Balancer**: ロードバランサー
+
+Aurora Serverless v2 は最小 0 ACU で構成しており、設定上は 300 秒（5 分）間リクエストが無い場合に自動ポーズしますが、実際には内部処理の完了を待つため約 12〜13 分でポーズされます。アクセスが再開されると通常は 15 秒程度で自動復帰します（24 時間以上ポーズされた場合は 30 秒以上かかることがあります）。この挙動により、検証環境やトラフィックの少ない時間帯のコスト最適化に役立ちます。
+
+実際のポーズ待機が長めになる主な要因：
+
+- Aurora 内部プロセス（ストレージ同期、バックグラウンドタスク、トランザクションログ書き込み、ヘルスチェック）の完了待機
+- マルチ AZ（Writer/Reader）間でのポーズ順序と状態同期（Reader → Writer の順にポーズ）
+- データ整合性や自動バックアップとの競合回避を目的とした安全マージン
 
 ### Configuration
 
@@ -331,6 +340,42 @@ Dev Container では以下が自動セットアップされます：
 - **CodePipeline**: AWS コンソールでパイプラインの状態を確認
 - **ECS サービス**: ECS コンソールでタスクの状態を確認
 - **ログ**: CloudWatch Logs で `/ecs/{AppName}` ロググループを確認
+- **データベース監視**: CloudWatch Database Insights で Aurora MySQL のパフォーマンスメトリクスを確認
+
+#### スタック削除時の注意事項
+
+CloudFormation スタックを削除する前に、以下の手順を実行してください：
+
+1. **CodePipeline Artifact 用 S3 バケットを空にする**
+
+   CodePipeline が使用する S3 バケットにはアーティファクトが保存されているため、スタック削除前にバケットを空にする必要があります。
+
+   ```bash
+   # バケット名を確認（CloudFormation スタックの出力から取得）
+   BUCKET_NAME="<CodePipelineArtifactsBucketName>-<AccountId>-<Region>"
+
+   # バケット内のオブジェクトを削除
+   aws s3 rm s3://${BUCKET_NAME} --recursive
+
+   # バージョン管理が有効な場合、すべてのバージョンを削除
+   aws s3api delete-objects \
+     --bucket ${BUCKET_NAME} \
+     --delete "$(aws s3api list-object-versions \
+       --bucket ${BUCKET_NAME} \
+       --output json \
+       --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}')"
+   ```
+
+2. **Route 53 の CNAME レコードを削除**
+
+   スタック削除前に、Route 53 で作成された SSL 証明書の検証用 CNAME レコードを手動で削除する必要があります。ACM（AWS Certificate Manager）が DNS 検証のために自動的に作成した以下の2つの CNAME レコードを削除してください：
+
+   - ルートドメイン用の検証 CNAME レコード: `_<random-string>.<DomainName>`
+   - サブドメイン用の検証 CNAME レコード: `_<random-string>.<SubdomainName>`
+
+   AWS コンソールの Route 53 から該当するホストゾーンを開き、CNAME レコードの一覧を確認して、ACM が作成した検証用の CNAME レコード（通常は `_` で始まる名前）を削除してください。
+
+   **注意**: これらの CNAME レコードを削除しないと、スタック削除時にエラーが発生する可能性があります。
 
 ## ECS Exec（オプション機能）
 
