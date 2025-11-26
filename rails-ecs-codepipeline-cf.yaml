@@ -25,6 +25,7 @@ Metadata:
           - GitHubRepo
           - GitHubBranch
           - CodeStarConnectionArn
+          - EnableEcsExec
       - Label:
           default: Domain Settings
         Parameters:
@@ -95,6 +96,13 @@ Parameters:
   CodeStarConnectionArn:
     Type: String
     Description: 'ARN of the CodeStar Connections connection to your GitHub account. Create this in AWS Console: Developer Tools > Settings > Connections. Format: arn:aws:codestar-connections:region:account-id:connection/connection-id. This connection allows CodePipeline to access your GitHub repository securely.'
+  EnableEcsExec:
+    Type: String
+    Default: 'no'
+    AllowedValues:
+      - 'yes'
+      - 'no'
+    Description: "Set to 'yes' to enable AWS ECS Exec support (SSM Session Manager). When set to 'no', the stack will skip creating the SSM Messages VPC endpoint and ECS Exec-related features will be unavailable."
   # Domain Settings
   DomainName:
     Type: String
@@ -126,6 +134,9 @@ Conditions:
     - 'no'
   UseExistingAccessLogsBucket: !Equals
     - !Ref 'AccessLogsBucketExists'
+    - 'yes'
+  EnableEcsExecCondition: !Equals
+    - !Ref 'EnableEcsExec'
     - 'yes'
 Resources:
   VPC:
@@ -415,6 +426,7 @@ Resources:
         - Key: Name
           Value: !Sub 'secretmanager-${AppName}-endpoint-01'
   SSMMessagesVPCEndpoint:
+    Condition: EnableEcsExecCondition
     Type: AWS::EC2::VPCEndpoint
     Properties:
       PrivateDnsEnabled: true
@@ -1101,9 +1113,12 @@ Resources:
       ClusterSettings:
         - Name: containerInsights
           Value: disabled
-      Configuration:
-        ExecuteCommandConfiguration:
-          Logging: DEFAULT
+      Configuration: !If
+        - EnableEcsExecCondition
+        -
+          ExecuteCommandConfiguration:
+            Logging: DEFAULT
+        - !Ref 'AWS::NoValue'
       Tags:
         - Key: Application
           Value: !Ref 'AppName'
@@ -1220,6 +1235,8 @@ Resources:
               Value: 3001
             - Name: PORT
               Value: 3001
+            - Name: ECS_EXEC_ENABLED
+              Value: !Ref 'EnableEcsExec'
       Cpu: '256'
       RequiresCompatibilities:
         - FARGATE
@@ -1259,7 +1276,10 @@ Resources:
           Rollback: true
         MaximumPercent: 200
         MinimumHealthyPercent: 100
-      EnableExecuteCommand: true
+      EnableExecuteCommand: !If
+        - EnableEcsExecCondition
+        - true
+        - false
       Tags:
         - Key: Application
           Value: !Ref 'AppName'

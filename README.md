@@ -65,6 +65,7 @@ GitHub → CodePipeline → CodeBuild → ECR → ECS
 - **CI/CD**: CodePipeline + CodeBuild による自動デプロイ
 - **ストレージ**: ECR（Docker イメージ）、S3（ログ・アーティファクト）
 - **セキュリティ**: Secrets Manager、VPC エンドポイント、セキュリティグループ
+- **運用**: ECS Exec（任意）でタスク内コンテナへ SSM セッション接続可能
 
 詳細なアーキテクチャ図については、[aws-architecture-diagram.md](./aws-architecture-diagram.md) を参照してください。
 
@@ -293,6 +294,7 @@ Dev Container では以下が自動セットアップされます：
    - `GitHubRepo`: GitHub リポジトリ（例: owner/repo）
    - `GitHubBranch`: 監視するブランチ（デフォルト: main）
    - `CodeStarConnectionArn`: CodeStar Connections の ARN
+   - `EnableEcsExec`: ECS Exec（SSM Session Manager）を有効にするかどうか
 
 2. **CodeStar Connection の作成**
 
@@ -329,3 +331,15 @@ Dev Container では以下が自動セットアップされます：
 - **CodePipeline**: AWS コンソールでパイプラインの状態を確認
 - **ECS サービス**: ECS コンソールでタスクの状態を確認
 - **ログ**: CloudWatch Logs で `/ecs/{AppName}` ロググループを確認
+
+## ECS Exec（オプション機能）
+
+CloudFormation テンプレートでは `EnableEcsExec` パラメータを `yes`に設定すると、以下のリソースや設定が有効になります。
+
+- ECS クラスターで `ExecuteCommandConfiguration` を有効化し、タスクコンテナへ SSM 経由で安全にシェル接続できる
+- `SSMMessagesVPCEndpoint`（Interface VPC エンドポイント）を作成し、プライベートネットワークから ECS Exec が利用可能になる
+- ECS サービスの `EnableExecuteCommand` を true に設定
+
+`EnableEcsExec` を `no`（デフォルト）にすると上記の構成はスキップされ、ECS Exec/Sessions Manager 機能は利用できなくなりますが、Rails アプリケーションのデプロイ自体には影響しません。運用ポリシーに応じて選択してください。
+
+**重要**: `EnableEcsExec` パラメータをスタック作成後に変更した場合、既存のタスクには自動的に反映されません。CloudFormation テンプレートでは、タスク定義に `ECS_EXEC_ENABLED` 環境変数を追加することで、パラメータ変更時にタスク定義が更新され、ECS サービスが新しいタスク定義を使用してタスクを自動的に再デプロイします。スタック更新後、新しいタスクが起動するまで数分かかる場合があります。
