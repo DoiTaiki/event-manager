@@ -68,7 +68,23 @@ GitHub → CodePipeline → CodeBuild → ECR → ECS
 - **セキュリティ**: Secrets Manager、VPC エンドポイント、セキュリティグループ
 - **運用**: ECS Exec（任意）でタスク内コンテナへ SSM セッション接続可能
 
-詳細なアーキテクチャ図については、[aws-architecture-diagram.md](./aws-architecture-diagram.md) を参照してください。
+### アーキテクチャ図
+
+AWS アーキテクチャの詳細な図を以下の形式で提供しています：
+
+![AWSアーキテクチャ図](./aws-architecture-diagram.svg)
+
+**図の内容**: VPC、サブネット、ECS、Aurora、CI/CD パイプライン、Route 53、ALB などの詳細な構成
+
+**ファイル形式**:
+- **SVG形式（画像表示用）**: [`aws-architecture-diagram.svg`](./aws-architecture-diagram.svg) - GitHub上で画像として表示されます
+- **Draw.io形式（編集用）**: [`aws-architecture-diagram.drawio`](./aws-architecture-diagram.drawio) - 図の編集に使用します
+- **Markdown形式（詳細説明）**: [`aws-architecture-diagram.md`](./aws-architecture-diagram.md) - 各コンポーネントの詳細な説明
+
+**図の閲覧・編集方法**:
+- **GitHub**: リポジトリにプッシュすると、GitHub上で直接図を表示・編集できます
+- **Draw.io オンラインエディタ**: [app.diagrams.net](https://app.diagrams.net/) でファイルを開いて編集可能
+- **VS Code**: [Draw.io Integration](https://marketplace.visualstudio.com/items?itemName=hediet.vscode-drawio) 拡張機能をインストールすると、VS Code内で直接編集できます
 
 ## セットアップ
 

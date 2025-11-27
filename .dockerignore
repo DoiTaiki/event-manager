@@ -54,4 +54,6 @@
 /rails-ecs-codepipeline-cf.yaml
 
 # Ignore architecture diagram
+/aws-architecture-diagram.drawio
 /aws-architecture-diagram.md
+/aws-architecture-diagram.svg
