@@ -1254,7 +1254,7 @@ Resources:
           Weight: 1
       TaskDefinition: !Ref 'ECSTaskDefinition'
       ServiceName: !Ref 'AppName'
-      DesiredCount: !If [UseECRImage, 1, 0]
+      DesiredCount: !If [UseECRImage, 2, 0]
       AvailabilityZoneRebalancing: ENABLED
       LoadBalancers:
         - ContainerName: !Ref 'AppName'
