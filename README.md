@@ -61,9 +61,9 @@ GitHub → CodePipeline → CodeBuild → ECR → ECS
 ### 主要コンポーネント
 
 - **ネットワーク**: VPC、パブリック/プライベートサブネット（マルチAZ）
-- **コンピューティング**: ECS Fargate で Rails アプリケーションを実行
+- **コンピューティング**: ECS Fargate で Rails アプリケーションを実行（デフォルトで2タスク、マルチAZ構成）
 - **ロードバランサー**: Application Load Balancer（HTTPS対応）
-- **データベース**: Aurora MySQL Serverless v2（マルチAZ構成、約12〜13分の非アクティブで自動ポーズし、復帰は約15秒）
+- **データベース**: Aurora MySQL Serverless v2（マルチAZ構成、約12〜13分の非アクティブ期間で自動ポーズし、復帰は約15秒）
 - **データベース監視**: CloudWatch Database Insights(Standard) によるパフォーマンス監視
 - **CI/CD**: CodePipeline + CodeBuild による自動デプロイ
 - **ストレージ**: ECR（Docker イメージ）、S3（ログ・アーティファクト）
@@ -153,7 +153,7 @@ AWS アーキテクチャの詳細な図を以下の形式で提供していま�
 - **環境変数**: データベース接続情報が自動設定されます
 - **機能**: GitHub CLI、Node.js、Docker が利用可能
 
-#### 方法2: ローカル環境で直接実行
+#### 方法2：ローカル環境で直接実行
 
 Dev Container を使用しない場合：
 
@@ -196,7 +196,9 @@ bin/dev
 - **ECS Fargate**: コンテナ実行環境
 - **Application Load Balancer**: ロードバランサー
 
-Aurora Serverless v2 は最小 0 ACU で構成しており、設定上は 300 秒（5 分）間リクエストが無い場合に自動ポーズしますが、実際には内部処理の完了を待つため約 12〜13 分でポーズされます。アクセスが再開されると通常は 15 秒程度で自動復帰します（24 時間以上ポーズされた場合は 30 秒以上かかることがあります）。この挙動により、検証環境やトラフィックの少ない時間帯のコスト最適化に役立ちます。
+Aurora Serverless v2 は最小 0 ACU で構成しており、設定上は 300 秒（5 分）間リクエストが無い場合に自動ポーズします。ただし、実際には内部処理の完了を待つため、約 12〜13 分でポーズされます。アクセスが再開されると、通常は 15 秒程度で自動復帰します（24 時間以上ポーズされた場合は 30 秒以上かかることがあります）。
+
+この挙動により、検証環境やトラフィックの少ない時間帯のコスト最適化に役立ちます。
 
 実際のポーズ待機が長めになる主な要因：
 
@@ -320,14 +322,14 @@ Dev Container では以下が自動セットアップされます：
    - `UseLatestDatabaseSnapshot`: 最新の手動スナップショットを自動的に使用するか（yes/no）
    - `CodePipelineArtifactsBucketName`: CodePipeline アーティファクト用 S3 バケットのベース名
    - `ECRRepositoryName`: Docker イメージを push する ECR リポジトリ名
-   - `AccessLogsBucketExists`: ALB アクセスログ用既存バケットを使う場合は `yes`
-   - `ECRImageExists`: 既に ECR イメージが存在する場合は `yes`
+   - `AccessLogsBucketExists`: ALB アクセスログ用の既存バケットを使用する場合は `yes`
+   - `ECRImageExists`: 既存の ECR イメージを使用する場合は `yes`
    - `DomainName`: ドメイン名（例: example.com）
    - `SubdomainName`: サブドメイン名（例: www.example.com）
    - `GitHubRepo`: GitHub リポジトリ（例: owner/repo）
    - `GitHubBranch`: 監視するブランチ（デフォルト: main）
    - `CodeStarConnectionArn`: CodeStar Connections の ARN
-   - `EnableEcsExec`: ECS Exec（SSM Session Manager）を有効にするかどうか
+   - `EnableEcsExec`: ECS Exec（SSM Session Manager）を有効にするか（yes/no、デフォルト: no）
 
 2. **CodeStar Connection の作成**
 
@@ -388,14 +390,18 @@ Dev Container では以下が自動セットアップされます：
 
 4. **Route 53 ネームサーバーの設定**
 
-   スタック作成後、出力された Route 53 ネームサーバーをドメインレジストラに設定します。同一アカウント内で Route 53 Domains に登録されたドメインを使用しており、テンプレートに含まれる `NameserverUpdateFunction` が `route53domains:UpdateDomainNameservers` を実行できる条件を満たす場合は自動で NS 同期が行われます。それ以外（外部レジストラや別アカウントのドメイン）では手動でネームサーバーを差し替えてください。
+   スタック作成後、出力された Route 53 ネームサーバーをドメインレジストラに設定します。
+
+   **自動設定**: 同一アカウント内で Route 53 Domains に登録されたドメインを使用しており、テンプレートに含まれる `NameserverUpdateFunction` が `route53domains:UpdateDomainNameservers` を実行できる条件を満たす場合は、自動で NS 同期が行われます。
+
+   **手動設定**: それ以外（外部レジストラや別アカウントのドメイン）では、手動でネームサーバーを差し替えてください。
 
 5. **初回デプロイ**
 
    - `ECRImageExists` パラメータを `no` に設定してスタックを作成
    - CodePipeline が自動的にトリガーされ、Docker イメージがビルド・プッシュされます
    - イメージが ECR にプッシュされたら、`ECRImageExists` を `yes` に更新して ECS サービスを有効化
-   - イメージ push の確認（例）:
+   - イメージ push の確認:
 
      ```bash
      aws ecr describe-images \
@@ -481,9 +487,10 @@ CloudFormation スタックの削除は、以下の順番で実施してくだ�
    バケットを空にしたら、`aws cloudformation delete-stack --stack-name event-manager` を実行します。`aws cloudformation describe-stacks --stack-name event-manager --query "Stacks[0].StackStatus" --output text` で進捗を確認してください。
 
    **注意**: スタックの削除完了まで通常15〜20分かかります。Aurora、ECS、ALB、VPCエンドポイントなど多数のリソースを削除するため、時間がかかります。
+
 ## ECS Exec（オプション機能）
 
-CloudFormation テンプレートでは `EnableEcsExec` パラメータを `yes`に設定すると、以下のリソースや設定が有効になります。
+CloudFormation テンプレートでは `EnableEcsExec` パラメータを `yes` に設定すると、以下のリソースや設定が有効になります。
 
 - ECS クラスターで `ExecuteCommandConfiguration` を有効化し、タスクコンテナへ SSM 経由で安全にシェル接続できる
 - `SSMMessagesVPCEndpoint`（Interface VPC エンドポイント）を作成し、プライベートネットワークから ECS Exec が利用可能になる

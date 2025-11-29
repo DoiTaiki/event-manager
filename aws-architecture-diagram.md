@@ -70,7 +70,7 @@
 │              │ MySQL:3306                                                    │
 │              ▼                                                               │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                  データベースサブネット (プライベート)                │   │
+│  │                  プライベートサブネット (DBサブネットグループ)        │   │
 │  │  ┌──────────────────────────────────────────────────────────────┐  │   │
 │  │  │  Aurora MySQL (Serverless v2)                                │  │   │
 │  │  │  ┌──────────────┐          ┌──────────────┐                │  │   │
@@ -272,8 +272,8 @@ graph TB
             ECSContainers[コンテナ<br/>Rails アプリ]
         end
 
-        subgraph DatabaseSubnets["データベースサブネット"]
-            AuroraCluster[Aurora MySQL<br/>Serverless v2]
+        subgraph DatabaseSubnets["プライベートサブネット<br/>(DBサブネットグループ)"]
+            AuroraCluster[Aurora MySQL<br/>Serverless v2<br/>最小0、最大2 ACU]
             DBInstance1[DB インスタンス 1<br/>AZ-1]
             DBInstance2[DB インスタンス 2<br/>AZ-2]
         end
@@ -422,13 +422,13 @@ graph TB
 
 ### ロードバランサー
 - **Application Load Balancer**: パブリックサブネット
-- **ターゲットグループ**: ECS サービス向け
+- **ターゲットグループ**: ECS サービス向け（HTTP:80、コンテナはPort 3000でリッスン）
 - **リスナー**: HTTPS (443) と HTTP (80 → HTTPS リダイレクト)
 
 ### データベース
-- **Aurora MySQL**: Serverless v2（最小0、最大16 ACU）
+- **Aurora MySQL**: Serverless v2（最小0、最大2 ACU）
 - **DB インスタンス**: 2つ（マルチAZ構成）
-- **DB サブネットグループ**: プライベートサブネット
+- **DB サブネットグループ**: プライベートサブネットを使用
 
 ### ストレージ
 - **ECR リポジトリ**: Docker イメージ保存
