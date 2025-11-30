@@ -35,9 +35,9 @@ Parameters:
   # Basic Settings
   AppName:
     Type: String
-    AllowedPattern: ^[a-zA-Z][a-zA-Z0-9]*$
     Description: 'Application name that will be used as a prefix for all AWS resources (VPC, RDS, ECS, etc.). Must start with a letter and contain only letters and numbers. Example: MyApp, ProductionApp'
     Default: EventManager
+    AllowedPattern: ^[a-zA-Z][a-zA-Z0-9]*$
   RailsMasterKey:
     Type: String
     Description: 'Rails master key for encrypting credentials and session data. Find this in your Rails app at config/master.key or generate with "rails credentials:edit". IMPORTANT: Keep this secret secure and never commit it to version control.'
@@ -45,72 +45,69 @@ Parameters:
   # Database Settings
   DatabaseUsername:
     Type: String
-    AllowedPattern: ^[a-zA-Z][a-zA-Z0-9_]{0,15}$
-    Default: root
     Description: 'Database administrator username for Aurora MySQL. Must be 1-16 characters, start with a letter, and contain only letters, numbers, and underscores. The password will be automatically generated and stored in AWS Secrets Manager.'
+    Default: root
+    AllowedPattern: ^[a-zA-Z][a-zA-Z0-9_]{0,15}$
   DatabaseSnapshotIdentifier:
     Type: String
-    Default: ''
     Description: 'Optional: Specific RDS snapshot ARN or identifier to restore from (e.g., rds:my-cluster-2024-01-01-12-00). Leave empty to create a new database cluster. If UseLatestDatabaseSnapshot is "yes", this parameter is ignored.'
+    Default: ''
   UseLatestDatabaseSnapshot:
     Type: String
+    Description: "Set to 'yes' to automatically find and use the latest available manual snapshot from the database cluster. If 'yes', the DatabaseSnapshotIdentifier parameter is ignored and AppName parameter must match the stack that produced the snapshot. Useful for automated restores without specifying exact snapshot IDs."
     Default: 'no'
     AllowedValues:
       - 'yes'
       - 'no'
-    Description: "Set to 'yes' to automatically find and use the latest available manual snapshot from the database cluster. If 'yes', the DatabaseSnapshotIdentifier parameter is ignored and AppName parameter must match the stack that produced the snapshot. Useful for automated restores without specifying exact snapshot IDs."
   # Storage Settings
   CodePipelineArtifactsBucketName:
     Type: String
-    AllowedPattern: ^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$
-    Default: codepipeline-artifacts
     Description: 'Base name for the S3 bucket that stores CodePipeline build artifacts. The actual bucket name will be "{base-name}-{account-id}-{region}". Must be globally unique across all AWS accounts. Use lowercase letters, numbers, dots, and hyphens only.'
+    Default: codepipeline-artifacts
+    AllowedPattern: ^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$
   ECRRepositoryName:
     Type: String
-    AllowedPattern: ^[a-z0-9]+(?:[._-][a-z0-9]+)*$
-    Default: event-manager-repo
     Description: 'Name of the Amazon ECR repository where Docker images will be stored. Use lowercase letters, numbers, dots, underscores, and hyphens only. Example: my-app-repo, production-images'
+    Default: event-manager-repo
+    AllowedPattern: ^[a-z0-9]+(?:[._-][a-z0-9]+)*$
   AccessLogsBucketExists:
     Type: String
+    Description: "Set to 'yes' to reuse the ALB access-log bucket created by a previous deployment (the bucket name is derived from the stack name, so deploy with the same stack name). Ensure the bucket already exists in this account/region and still allows ALB log delivery. Set to 'no' to let this stack create and manage a new bucket automatically."
     Default: 'no'
     AllowedValues:
       - 'yes'
       - 'no'
-    Description: "Set to 'yes' to reuse the ALB access-log bucket created by a previous deployment (the bucket name is derived from the stack name, so deploy with the same stack name). Ensure the bucket already exists in this account/region and still allows ALB log delivery. Set to 'no' to let this stack create and manage a new bucket automatically."
   # Deployment Settings
   ECRImageExists:
     Type: String
+    Description: "Set to 'no' for the first deployment (when no Docker image exists yet). After CodePipeline successfully builds and pushes your first image to ECR, update this to 'yes' to enable the ECS service. This prevents deployment failures when the image doesn't exist yet."
+    Default: 'no'
     AllowedValues:
       - 'yes'
       - 'no'
-    Default: 'no'
-    Description: "Set to 'no' for the first deployment (when no Docker image exists yet). After CodePipeline successfully builds and pushes your first image to ECR, update this to 'yes' to enable the ECS service. This prevents deployment failures when the image doesn't exist yet."
   GitHubRepo:
     Type: String
-    Default: DoiTaiki/event-manager
     Description: 'GitHub repository in the format "owner/repository-name". This is the repository that CodePipeline will monitor for code changes. Example: myusername/my-rails-app, company/production-app'
   GitHubBranch:
     Type: String
-    Default: main
     Description: 'Git branch name that CodePipeline will monitor. When code is pushed to this branch, it will automatically trigger a build and deployment. Common values: main, master, production, staging'
+    Default: main
   CodeStarConnectionArn:
     Type: String
     Description: 'ARN of the CodeStar Connections connection to your GitHub account. Create this in AWS Console: Developer Tools > Settings > Connections. Format: arn:aws:codestar-connections:region:account-id:connection/connection-id. This connection allows CodePipeline to access your GitHub repository securely.'
   EnableEcsExec:
     Type: String
+    Description: "Set to 'yes' to enable AWS ECS Exec support (SSM Session Manager). When set to 'no', the stack will skip creating the SSM Messages VPC endpoint and ECS Exec-related features will be unavailable."
     Default: 'no'
     AllowedValues:
       - 'yes'
       - 'no'
-    Description: "Set to 'yes' to enable AWS ECS Exec support (SSM Session Manager). When set to 'no', the stack will skip creating the SSM Messages VPC endpoint and ECS Exec-related features will be unavailable."
   # Domain Settings
   DomainName:
     Type: String
-    Default: rails-template.click
     Description: 'Root domain name for your application (e.g., example.com, myapp.org). This domain must be registered in Route 53 or have its DNS nameservers delegated to Route 53. The template will create a hosted zone and SSL certificate for this domain.'
   SubdomainName:
     Type: String
-    Default: www.rails-template.click
     Description: 'Full subdomain name for your application (e.g., www.example.com, app.example.com). For wildcard SSL certificates, use *.example.com format. Note: Wildcard covers only one level (*.example.com covers app.example.com but NOT api.app.example.com).'
 Conditions:
   UseECRImage: !Equals

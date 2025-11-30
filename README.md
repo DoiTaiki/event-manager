@@ -4,11 +4,9 @@ Rails アプリケーションを AWS 上で実行するためのイベント管
 
 ## プロジェクトについて
 
-このプロジェクトは、Rails と React を用いた開発方法のキャッチアップを目的として作成されました。Rails 8 と React 19 を使用した CRUD アプリケーションの構築方法を学習するための実装です。
+本プロジェクトは、**CloudFormation による AWS インフラの実装に注力したプロジェクト**です。単一テンプレート内でのリソース定義整理や依存関係管理まで含めた、実践的な IaC（Infrastructure as Code）の実装となっています。
 
-本プロジェクトの主な特徴は、アプリケーション機能だけでなく、CloudFormation による AWS リソース一式の自動構築に注力している点です。単一テンプレート内でのリソース定義整理や依存関係管理まで含めた、実践的な IaC（Infrastructure as Code）の実装となっています。
-
-本プロジェクトは、[TechRacho の「Rails 7とReactによるCRUDアプリ作成チュートリアル」](https://techracho.bpsinc.jp/hachi8833/2022_05_26/118202) を参考にしています。このチュートリアルでは、Ruby on Rails で JSON API を構築し、その API と通信する React フロントエンドを実装する方法が解説されています。
+アプリケーション部分（Rails 8 + React 19）は、AWS インフラ上で動作するサンプルアプリケーションとして、学習目的で実装しています。アプリケーションの実装は、[TechRacho の「Rails 7とReactによるCRUDアプリ作成チュートリアル」](https://techracho.bpsinc.jp/hachi8833/2022_05_26/118202) を参考にしています。
 
 ### 技術スタック
 
@@ -133,12 +131,13 @@ AWS アーキテクチャの詳細な図を以下の形式で提供していま�
 4. **自動セットアップ**
 
    Dev Container が起動すると、`postCreateCommand` により以下が自動実行されます：
+
    - 依存関係のインストール（`bundle install`、`npm install`）
    - データベースのセットアップ（`bin/rails db:prepare`）
 
 5. **開発サーバーの起動**
 
-   Dev Container 内のターミナルで：
+   Dev Container 内のターミナルで以下のコマンドを実行：
 
    ```bash
    bin/dev
@@ -314,70 +313,86 @@ Dev Container では以下が自動セットアップされます：
 
 1. **CloudFormation テンプレートの準備**
 
-   `rails-ecs-codepipeline-cf.yaml` のパラメータを確認・設定：
-   - `AppName`: アプリケーション名（デフォルト: EventManager）
+   [`rails-ecs-codepipeline-cf.yaml`](./rails-ecs-codepipeline-cf.yaml) で使用するパラメータの確認(スタックの作成・更新時に指定)。パラメータ毎の詳細はテンプレートのParametersセクションを確認してください。
+
+   **必須パラメータ**:
    - `RailsMasterKey`: `config/master.key` の値
-   - `DatabaseUsername`: データベースユーザー名（デフォルト: root）
-   - `DatabaseSnapshotIdentifier`: 復元したいスナップショット ARN（新規作成なら空文字）
-   - `UseLatestDatabaseSnapshot`: 最新の手動スナップショットを自動的に使用するか（yes/no）
-   - `CodePipelineArtifactsBucketName`: CodePipeline アーティファクト用 S3 バケットのベース名
-   - `ECRRepositoryName`: Docker イメージを push する ECR リポジトリ名
-   - `AccessLogsBucketExists`: ALB アクセスログ用の既存バケットを使用する場合は `yes`
-   - `ECRImageExists`: 既存の ECR イメージを使用する場合は `yes`
+   - `CodeStarConnectionArn`: CodeStar Connections の ARN
+   - `GitHubRepo`: GitHub リポジトリ（例: owner/repo）
    - `DomainName`: ドメイン名（例: example.com）
    - `SubdomainName`: サブドメイン名（例: www.example.com）
-   - `GitHubRepo`: GitHub リポジトリ（例: owner/repo）
+
+   **更新が必要なパラメータ**（スタック作成時は `no`、後で `yes` に更新）:
+   - `ECRImageExists`: デフォルト値 `no` のままスタックを作成し、CodePipeline が Docker イメージをビルド・プッシュした後に `yes` に更新して ECS サービスを有効化（デフォルト: no）
+
+   **再デプロイ時に使用するパラメータ**（既存リソースを再利用する場合）:
+   - `DatabaseSnapshotIdentifier`: 復元したいスナップショット ARN（デフォルト: 空文字）。既存のデータベーススナップショットから復元する場合に使用。`UseLatestDatabaseSnapshot`が`yes` の場合、無視されます。
+   - `UseLatestDatabaseSnapshot`: 最新の手動スナップショットを自動的に使用するか（yes/no、デフォルト: no）。既存のデータベースクラスターの最新手動スナップショットから自動復元する場合に `yes` を設定。
+   - `AccessLogsBucketExists`: ALB アクセスログ用の既存バケットが存在する場合は `yes`（デフォルト: no）。再デプロイ時に既存バケットを再利用する場合に使用。**注意**: このバケットは `DeletionPolicy: Retain` により、スタック削除時に削除されません。
+
+   **任意パラメータ**（デフォルト値あり）:
+   - `AppName`: アプリケーション名（デフォルト: EventManager）
+   - `DatabaseUsername`: データベースユーザー名（デフォルト: root）
+   - `CodePipelineArtifactsBucketName`: CodePipeline アーティファクト用 S3 バケットのベース名（デフォルト: codepipeline-artifacts）
+   - `ECRRepositoryName`: Docker イメージを push する ECR リポジトリ名（デフォルト: event-manager-repo）
    - `GitHubBranch`: 監視するブランチ（デフォルト: main）
-   - `CodeStarConnectionArn`: CodeStar Connections の ARN
    - `EnableEcsExec`: ECS Exec（SSM Session Manager）を有効にするか（yes/no、デフォルト: no）
 
 2. **CodeStar Connection の作成**
 
    AWS コンソールで CodeStar Connections を作成し、GitHub アカウントと接続します。
+   - AWS コンソールで「CodePipeline」→「Settings」→「Connections」に移動
+   - 「Create connection」をクリック
+   - 「GitHub」を選択して「Next」をクリック
+   - 接続名を入力し、「Connect to GitHub」をクリック
+   - GitHub の認証画面で認証を完了
+   - 接続が「Available」状態になるまで待機（数分かかる場合があります）
+   - 接続の ARN をコピーして、`CodeStarConnectionArn` パラメータに使用
 
 3. **CloudFormation スタックの作成**
 
    テンプレートは 51,200 バイトのサイズ制限を超えるため、`--template-body` ではなく S3 へアップロードして `--template-url` で参照する必要があります。
 
-   **既存のS3バケットを確認する場合**:
+   **S3バケットの準備**:
+
+   テンプレートをアップロードするための S3 バケットが必要です。既存のバケットがない場合は作成してください。
 
    ```bash
-   # すべてのS3バケット一覧を表示
-   aws s3 ls
-
-   # 特定のリージョンのバケット一覧を表示
+   # 既存のS3バケットを確認
    aws s3 ls --region ap-northeast-1
+
+   # 新規バケットを作成する場合
+   aws s3 mb s3://your-template-bucket --region ap-northeast-1
+
+   # バケット名を環境変数に渡す
+   export TEMPLATE_BUCKET_NAME="your-template-bucket"
    ```
 
    **テンプレートをS3にアップロード**:
 
    ```bash
-   aws s3 cp rails-ecs-codepipeline-cf.yaml s3://your-template-bucket/cf/rails-ecs-codepipeline-cf.yaml
+   aws s3 cp rails-ecs-codepipeline-cf.yaml s3://${TEMPLATE_BUCKET_NAME}/cf/rails-ecs-codepipeline-cf.yaml
    ```
+
+   **スタック作成コマンド**（必須パラメータを含む最小構成）:
 
    ```bash
    aws cloudformation create-stack \
-     --stack-name event-manager \
-     --template-url https://your-template-bucket.s3.amazonaws.com/cf/rails-ecs-codepipeline-cf.yaml \
-     --parameters ParameterKey=AppName,ParameterValue=EventManager \
-                  ParameterKey=RailsMasterKey,ParameterValue=your-master-key \
-                  ParameterKey=DatabaseUsername,ParameterValue=root \
-                  ParameterKey=DatabaseSnapshotIdentifier,ParameterValue='' \
-                  ParameterKey=UseLatestDatabaseSnapshot,ParameterValue=no \
-                  ParameterKey=CodePipelineArtifactsBucketName,ParameterValue=codepipeline-artifacts \
-                  ParameterKey=ECRRepositoryName,ParameterValue=event-manager-repo \
-                  ParameterKey=AccessLogsBucketExists,ParameterValue=no \
-                  ParameterKey=ECRImageExists,ParameterValue=no \
+   --stack-name event-manager \
+   --template-url https://${TEMPLATE_BUCKET_NAME}.s3.amazonaws.com/cf/rails-ecs-codepipeline-cf.yaml \
+   --parameters ParameterKey=RailsMasterKey,ParameterValue=your-master-key \
+                  ParameterKey=CodeStarConnectionArn,ParameterValue=arn:aws:codestar-connections:region:account-id:connection/connection-id \
+                  ParameterKey=GitHubRepo,ParameterValue=owner/repo \
                   ParameterKey=DomainName,ParameterValue=example.com \
                   ParameterKey=SubdomainName,ParameterValue=www.example.com \
-                  ParameterKey=GitHubRepo,ParameterValue=owner/repo \
-                  ParameterKey=GitHubBranch,ParameterValue=main \
-                  ParameterKey=CodeStarConnectionArn,ParameterValue=arn:aws:codestar-connections:... \
-                  ParameterKey=EnableEcsExec,ParameterValue=no \
-     --capabilities CAPABILITY_NAMED_IAM
+   --capabilities CAPABILITY_NAMED_IAM \
+   --region ap-northeast-1
    ```
 
-   **注意**: スタックの作成完了まで通常20〜30分かかります。VPC、サブネット、Aurora、ECS、ALB、Route 53、ACM証明書など多数のリソースを作成するため、時間がかかります。
+   **注意**:
+   - 上記コマンドは必須パラメータのみの例です。任意パラメータのデフォルト値を変更したい場合は、`--parameters` に追加してください。
+   - **`ECRImageExists`パラメータはデフォルト値`no`のままにしてください**。CodePipeline が Docker イメージをビルド・プッシュした後に `yes` に更新します（詳細は「5. ECS サービスの有効化」を参照）。
+   - スタックの作成完了まで通常20〜30分かかります。VPC、サブネット、Aurora、ECS、ALB、Route 53、ACM証明書など多数のリソースを作成するため、時間がかかります。
 
    **デプロイの進捗確認**:
 
@@ -390,58 +405,65 @@ Dev Container では以下が自動セットアップされます：
 
 4. **Route 53 ネームサーバーの設定**
 
-   スタック作成後、出力された Route 53 ネームサーバーをドメインレジストラに設定します。
+   ドメインの登録場所がRoute 53 Domains（同一アカウント）ではない場合、手動設定が必要です。
 
-   **自動設定**: 同一アカウント内で Route 53 Domains に登録されたドメインを使用しており、テンプレートに含まれる `NameserverUpdateFunction` が `route53domains:UpdateDomainNameservers` を実行できる条件を満たす場合は、自動で NS 同期が行われます。
+   - **Route 53 Domains（同一アカウント）**: 自動設定されます。手動設定は不要です。
+   - **外部レジストラ（お名前.com、ムームードメイン、GoDaddy など）または Route 53 Domains（別アカウント）**: 下記コマンドで取得したネームサーバーを手動設定してください。
 
-   **手動設定**: それ以外（外部レジストラや別アカウントのドメイン）では、手動でネームサーバーを差し替えてください。
+   **ネームサーバーの取得**:
 
-5. **初回デプロイ**
+   ```bash
+   aws cloudformation describe-stacks \
+     --stack-name event-manager \
+     --query "Stacks[0].Outputs[?OutputKey=='Route53NameServers'].OutputValue" \
+     --output text
+   ```
 
-   - `ECRImageExists` パラメータを `no` に設定してスタックを作成
-   - CodePipeline が自動的にトリガーされ、Docker イメージがビルド・プッシュされます
-   - イメージが ECR にプッシュされたら、`ECRImageExists` を `yes` に更新して ECS サービスを有効化
-   - イメージ push の確認:
+   **手動設定方法**:
 
-     ```bash
-     aws ecr describe-images \
-       --repository-name event-manager-repo \
-       --query "imageDetails[].imageTags" \
-       --output table
-     ```
-   - パラメータ更新:
+   - **外部レジストラの場合**: 取得したネームサーバーを各レジストラの管理画面で設定してください。
+   - **Route 53 Domains（別アカウント）の場合**: AWSコンソールで「Route 53」→「Registered domains」→対象ドメインを選択→「Actions」→「Edit name servers」で取得したネームサーバーを設定してください。
 
-     ```bash
-     aws cloudformation update-stack \
-       --stack-name event-manager \
-       --use-previous-template \
-       --capabilities CAPABILITY_NAMED_IAM \
-       --parameters ParameterKey=ECRImageExists,ParameterValue=yes \
-                    ParameterKey=AppName,UsePreviousValue=true \
-                    ParameterKey=RailsMasterKey,UsePreviousValue=true \
-                    ParameterKey=DatabaseUsername,UsePreviousValue=true \
-                    ParameterKey=DatabaseSnapshotIdentifier,UsePreviousValue=true \
-                    ParameterKey=UseLatestDatabaseSnapshot,UsePreviousValue=true \
-                    ParameterKey=CodePipelineArtifactsBucketName,UsePreviousValue=true \
-                    ParameterKey=ECRRepositoryName,UsePreviousValue=true \
-                    ParameterKey=AccessLogsBucketExists,UsePreviousValue=true \
-                    ParameterKey=DomainName,UsePreviousValue=true \
-                    ParameterKey=SubdomainName,UsePreviousValue=true \
-                    ParameterKey=GitHubRepo,UsePreviousValue=true \
-                    ParameterKey=GitHubBranch,UsePreviousValue=true \
-                    ParameterKey=CodeStarConnectionArn,UsePreviousValue=true \
-                    ParameterKey=EnableEcsExec,UsePreviousValue=true
-     ```
+5. **ECS サービスの有効化**
 
-   **注意**: スタックの更新完了まで通常5〜10分かかります。ECSサービスの更新やタスクの再デプロイに時間がかかります。
+   スタックを作成するとCodePipeline が自動的にトリガーされ、Docker イメージがビルド・プッシュされます。イメージが ECR にプッシュされたら、`ECRImageExists` をデフォルト値 `no` → `yes` に更新して ECS サービスを有効化させます。
+
+   **イメージ push の確認**:
+
+   ```bash
+   aws ecr describe-images \
+      --repository-name event-manager-repo \
+      --query "imageDetails[].imageTags" \
+      --output table
+   ```
+
+   **パラメータ更新**:
+
+   ```bash
+   aws cloudformation update-stack \
+      --stack-name event-manager \
+      --use-previous-template \
+      --capabilities CAPABILITY_NAMED_IAM \
+      --parameters ParameterKey=ECRImageExists,ParameterValue=yes \
+                  ParameterKey=RailsMasterKey,UsePreviousValue=true \
+                  ParameterKey=CodeStarConnectionArn,UsePreviousValue=true \
+                  ParameterKey=GitHubRepo,UsePreviousValue=true \
+                  ParameterKey=DomainName,UsePreviousValue=true \
+                  ParameterKey=SubdomainName,UsePreviousValue=true \
+      --region ap-northeast-1
+   ```
+
+   **注意**:
+   - `update-stack` で `--parameters` を指定した場合、**指定されていないパラメータはデフォルト値に戻ります**（前回の値は保持されません）。上記のコマンドでは、必須パラメータと更新対象パラメータのみを指定しています。もし `create-stack` でデフォルト値以外を指定した任意パラメータ（例: `UseLatestDatabaseSnapshot=yes`、`AccessLogsBucketExists=yes` など）がある場合は、`ParameterKey=<パラメータ名>,UsePreviousValue=true` を追加してください。
+   - スタックの更新完了まで通常5〜10分かかります。ECSサービスの更新やタスクの再デプロイに時間がかかります。
 
 #### デプロイ後の確認（AWS コンソール）
 
 - **アプリケーション URL**: CloudFormation > 対象スタック > Outputs
 - **CodePipeline**: CodePipeline > 対象パイプラインの詳細
 - **ECS サービス**: ECS > 対象クラスター > サービス詳細
-- **ログ**: CloudWatch Logs > `/ecs/{AppName}` ロググループ
-- **データベース監視**: CloudWatch > Performance Insights / Database Insights（Aurora MySQL）
+- **ログ**: CloudWatch > Log groups > `/ecs/{AppName}` ロググループ
+- **データベース監視**: CloudWatch > Database Insights > 対象DBインスタンス
 
 #### スタック削除時の注意事項
 
@@ -464,23 +486,22 @@ CloudFormation スタックの削除は、以下の順番で実施してくだ�
 
    ```bash
    # バケット名を確認（CloudFormation スタックの出力から取得）
-   export BUCKET_NAME="<CodePipelineArtifactsBucketName>-<AccountId>-<Region>"
+   export CP_ARTIFACT_BUCKET_NAME="<CodePipelineArtifactsBucketName>-<AccountId>-<Region>"
 
    # バケット内のオブジェクトを削除
-   aws s3 rm s3://${BUCKET_NAME} --recursive
+   aws s3 rm s3://${CP_ARTIFACT_BUCKET_NAME} --recursive
 
    # バージョニング付きオブジェクトをまとめて削除
    aws s3api list-object-versions \
-     --bucket "${BUCKET_NAME}" \
+     --bucket "${CP_ARTIFACT_BUCKET_NAME}" \
      --output json \
    | jq -c '{Objects: [(.Versions[]? , .DeleteMarkers[]?) | {Key:.Key, VersionId:.VersionId}], Quiet: false}' \
    | aws s3api delete-objects \
-       --bucket "${BUCKET_NAME}" \
+       --bucket "${CP_ARTIFACT_BUCKET_NAME}" \
        --delete file:///dev/stdin
-
-   # 1000 件を超える場合は list-object-versions のレスポンスで IsTruncated が true かを確認し、
-   # NextVersionIdMarker を指定して上記コマンドを繰り返してください。
    ```
+
+   **1000 件を超える場合**: 上記のコマンドでは削除しきれない場合があります。その場合は、AWS コンソールから S3 バケットを開き、「空にする」機能を使用してバケットを空にしてください。AWS コンソールでは、バージョニング付きオブジェクトも含めてすべてのオブジェクトを削除できます。
 
 3. **スタックを削除する**
 
@@ -488,14 +509,35 @@ CloudFormation スタックの削除は、以下の順番で実施してくだ�
 
    **注意**: スタックの削除完了まで通常15〜20分かかります。Aurora、ECS、ALB、VPCエンドポイントなど多数のリソースを削除するため、時間がかかります。
 
+   **削除後に残るリソース**:
+   - **ALB アクセスログ用 S3 バケット**: `DeletionPolicy: Retain` により、スタック削除後も残ります。不要な場合は手動で削除してください。
+   - **データベーススナップショット**: Aurora の自動バックアップにより作成されたスナップショットは残ります。不要な場合は手動で削除してください。
+   - **ECS タスク定義**: `DeletionPolicy: Retain` により残ります。通常は問題ありませんが、不要な場合は手動で削除できます。
+   - **CloudWatch Logs ロググループ**: `/ecs/${AppName}` ロググループは自動削除されません。不要な場合は手動で削除してください。
+   - **ECR イメージ**: 通常は ECR リポジトリと共に削除されますが、リポジトリの削除が失敗した場合などに残る可能性があります。不要な場合は手動で削除してください。
+
 ## ECS Exec（オプション機能）
 
-CloudFormation テンプレートでは `EnableEcsExec` パラメータを `yes` に設定すると、以下のリソースや設定が有効になります。
+`EnableEcsExec` パラメータを `yes` に設定してスタックを作成・更新すると、以下のリソースや設定が有効になります。
 
 - ECS クラスターで `ExecuteCommandConfiguration` を有効化し、タスクコンテナへ SSM 経由で安全にシェル接続できる
 - `SSMMessagesVPCEndpoint`（Interface VPC エンドポイント）を作成し、プライベートネットワークから ECS Exec が利用可能になる
 - ECS サービスの `EnableExecuteCommand` を true に設定
 
-`EnableEcsExec` を `no`（デフォルト）にすると上記の構成はスキップされ、ECS Exec/Sessions Manager 機能は利用できなくなりますが、Rails アプリケーションのデプロイ自体には影響しません。運用ポリシーに応じて選択してください。
+`EnableEcsExec` を `no`（デフォルト）にすると上記の構成はスキップされ、ECS Exec/Sessions Manager 機能は利用できなくなりますが、Rails アプリケーションのデプロイ自体には影響しません。
 
-**重要**: `EnableEcsExec` パラメータをスタック作成後に変更した場合、既存のタスクには自動的に反映されません。CloudFormation テンプレートでは、タスク定義に `ECS_EXEC_ENABLED` 環境変数を追加することで、パラメータ変更時にタスク定義が更新され、ECS サービスが新しいタスク定義を使用してタスクを自動的に再デプロイします。スタック更新後、新しいタスクが起動するまで数分かかる場合があります。
+**推奨される運用**: Interface VPC エンドポイント（`SSMMessagesVPCEndpoint`）は時間単位の料金が発生し、一般的に割高です。そのため、**常時有効にするのではなく、必要な時のみ一時的に `EnableEcsExec` を `yes` に更新して使用し、作業完了後は `no` に戻す運用を推奨します**。
+
+**使用例**: ECS Exec を使用してコンテナに接続する場合、以下のコマンドを実行します。クラスター名、タスクID、コンテナ名は実際の値に置き換えてください。
+
+```bash
+aws ecs execute-command \
+   --region ap-northeast-1 \
+   --cluster <クラスター名> \
+   --task <タスクID> \
+   --container <コンテナ名> \
+   --command "/bin/bash" \
+   --interactive
+```
+
+**注意**: `EnableEcsExec` パラメータをスタック作成後に更新した場合、ECS サービスが新しいタスク定義を使用してタスクを自動的に再デプロイします。スタックの更新完了まで通常5〜10分かかります。
