@@ -57,3 +57,6 @@
 /aws-architecture-diagram.drawio
 /aws-architecture-diagram.md
 /aws-architecture-diagram.svg
+
+# Ignore docs
+/docs
