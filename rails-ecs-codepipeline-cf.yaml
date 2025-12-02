@@ -10,6 +10,7 @@ Metadata:
           default: Database Settings
         Parameters:
           - DatabaseUsername
+          - EnableDBAutoPause
           - DatabaseSnapshotIdentifier
           - UseLatestDatabaseSnapshot
       - Label:
@@ -56,6 +57,13 @@ Parameters:
     Type: String
     Description: "Set to 'yes' to automatically find and use the latest available manual snapshot from the database cluster. If 'yes', the DatabaseSnapshotIdentifier parameter is ignored and AppName parameter must match the stack that produced the snapshot. Useful for automated restores without specifying exact snapshot IDs."
     Default: 'no'
+    AllowedValues:
+      - 'yes'
+      - 'no'
+  EnableDBAutoPause:
+    Type: String
+    Description: "Set to 'yes' to enable auto-pause for Aurora Serverless v2 (MinCapacity: 0 ACU, pauses after ~12-13 minutes of inactivity, resumes in ~15 seconds). Set to 'no' to keep the database always running (MinCapacity: 0.5 ACU, suitable for production)."
+    Default: 'yes'
     AllowedValues:
       - 'yes'
       - 'no'
@@ -134,6 +142,9 @@ Conditions:
     - 'yes'
   EnableEcsExecCondition: !Equals
     - !Ref 'EnableEcsExec'
+    - 'yes'
+  EnableDBAutoPauseCondition: !Equals
+    - !Ref 'EnableDBAutoPause'
     - 'yes'
 Resources:
   VPC:
@@ -643,8 +654,14 @@ Resources:
       VpcSecurityGroupIds:
         - !Ref 'DatabaseSecurityGroup'
       ServerlessV2ScalingConfiguration:
-        MinCapacity: 0
-        SecondsUntilAutoPause: 300
+        MinCapacity: !If
+          - EnableDBAutoPauseCondition
+          - 0
+          - 0.5
+        SecondsUntilAutoPause: !If
+          - EnableDBAutoPauseCondition
+          - 300
+          - !Ref 'AWS::NoValue'
         MaxCapacity: 2
       DBSubnetGroupName: !Ref 'DatabaseSubnetGroup'
       EnableCloudwatchLogsExports:

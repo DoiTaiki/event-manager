@@ -61,7 +61,7 @@ GitHub → CodePipeline → CodeBuild → ECR → ECS
 - **ネットワーク**: VPC、パブリック/プライベートサブネット（マルチAZ）
 - **コンピューティング**: ECS Fargate で Rails アプリケーションを実行（デフォルトで2タスク、マルチAZ構成）
 - **ロードバランサー**: Application Load Balancer（HTTPS対応）
-- **データベース**: Aurora MySQL Serverless v2（マルチAZ構成、約12〜13分の非アクティブ期間で自動ポーズし、復帰は約15秒）
+- **データベース**: Aurora MySQL Serverless v2（マルチAZ構成）
 - **データベース監視**: CloudWatch Database Insights(Standard) によるパフォーマンス監視
 - **CI/CD**: CodePipeline + CodeBuild による自動デプロイ
 - **ストレージ**: ECR（Docker イメージ）、S3（ログ・アーティファクト）
@@ -195,16 +195,6 @@ bin/dev
 - **ECS Fargate**: コンテナ実行環境
 - **Application Load Balancer**: ロードバランサー
 
-Aurora Serverless v2 は最小 0 ACU で構成しており、設定上は 300 秒（5 分）間リクエストが無い場合に自動ポーズします。ただし、実際には内部処理の完了を待つため、約 12〜13 分でポーズされます。アクセスが再開されると、通常は 15 秒程度で自動復帰します（24 時間以上ポーズされた場合は 30 秒以上かかることがあります）。
-
-この挙動により、検証環境やトラフィックの少ない時間帯のコスト最適化に役立ちます。
-
-実際のポーズ待機が長めになる主な要因：
-
-- Aurora 内部プロセス（ストレージ同期、バックグラウンドタスク、トランザクションログ書き込み、ヘルスチェック）の完了待機
-- マルチ AZ（Writer/Reader）間でのポーズ順序と状態同期（Reader → Writer の順にポーズ）
-- データ整合性や自動バックアップとの競合回避を目的とした安全マージン
-
 ### Configuration
 
 アプリケーションは環境変数で設定されます：
@@ -333,10 +323,11 @@ Dev Container では以下が自動セットアップされます：
    **任意パラメータ**（デフォルト値あり）:
    - `AppName`: アプリケーション名（デフォルト: EventManager）
    - `DatabaseUsername`: データベースユーザー名（デフォルト: root）
+   - `EnableDBAutoPause`: Aurora Serverless v2 の自動ポーズ機能を有効にするか（yes/no、デフォルト: yes）。`yes` は最小容量 0 ACU で自動ポーズを有効化（非アクティブ後約 12〜13 分でポーズ、復帰は約 15 秒）。`no` は最小容量 0.5 ACU で常時起動状態を維持（本番環境向け）（詳細は「[オプション機能](#オプション機能)」セクションの「[Aurora 自動ポーズ機能](#aurora-自動ポーズ機能)」を参照）。
    - `CodePipelineArtifactsBucketName`: CodePipeline アーティファクト用 S3 バケットのベース名（デフォルト: codepipeline-artifacts）
    - `ECRRepositoryName`: Docker イメージを push する ECR リポジトリ名（デフォルト: event-manager-repo）
    - `GitHubBranch`: 監視するブランチ（デフォルト: main）
-   - `EnableEcsExec`: ECS Exec（SSM Session Manager）を有効にするか（yes/no、デフォルト: no）
+   - `EnableEcsExec`: ECS Exec（SSM Session Manager）を有効にするか（yes/no、デフォルト: no）（詳細は「[オプション機能](#オプション機能)」セクションの「[ECS Exec](#ecs-exec)」を参照）。
 
 2. **CodeStar Connection の作成**
 
@@ -516,7 +507,32 @@ CloudFormation スタックの削除は、以下の順番で実施してくだ�
    - **CloudWatch Logs ロググループ**: `/ecs/${AppName}` ロググループは自動削除されません。不要な場合は手動で削除してください。
    - **ECR イメージ**: 通常は ECR リポジトリと共に削除されますが、リポジトリの削除が失敗した場合などに残る可能性があります。不要な場合は手動で削除してください。
 
-## ECS Exec（オプション機能）
+## オプション機能
+
+### Aurora 自動ポーズ機能
+
+`EnableDBAutoPause` パラメータにより、Aurora Serverless v2 の自動ポーズ機能を制御できます。
+
+**自動ポーズ機能有効**（`EnableDBAutoPause: yes`、デフォルト）:
+- 最小容量 0 ACU で自動ポーズ機能が有効になります
+- 設定上は 300 秒（5 分）間リクエストが無い場合に自動ポーズします。ただし、実際には内部処理の完了を待つため、約 12〜13 分でポーズされます
+- アクセスが再開されると、通常は 15 秒程度で自動復帰します（24 時間以上ポーズされた場合は 30 秒以上かかることがあります）
+- この挙動により、検証環境やトラフィックの少ない時間帯のコスト最適化に役立ちます
+
+**常時起動モード**（`EnableDBAutoPause: no`）:
+- 最小容量 0.5 ACU でデータベースは常時起動状態を維持します
+- 自動ポーズは無効になります
+- 本番環境や常時アクセスが必要な環境に適しています
+
+**実際のポーズ待機が長めになる主な要因**:
+
+- Aurora 内部プロセス（ストレージ同期、バックグラウンドタスク、トランザクションログ書き込み、ヘルスチェック）の完了待機
+- マルチ AZ（Writer/Reader）間でのポーズ順序と状態同期（Reader → Writer の順にポーズ）
+- データ整合性や自動バックアップとの競合回避を目的とした安全マージン
+
+**推奨される運用**: 自動ポーズ機能は検証環境やトラフィックの少ない時間帯のコスト最適化に有効です。本番環境や常時アクセスが必要な環境では、`EnableDBAutoPause` を `no` に設定して常時起動モードを使用することを推奨します。
+
+### ECS Exec
 
 `EnableEcsExec` パラメータを `yes` に設定してスタックを作成・更新すると、以下のリソースや設定が有効になります。
 
