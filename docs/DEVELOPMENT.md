@@ -124,7 +124,7 @@ Dev Container では、以下の環境変数が自動設定されます：
 - `RAILS_MASTER_KEY`: Secrets Manager の `prod/{AppName}/rails_master_key` から取得
 - `DB_USERNAME`, `DB_PASSWORD`: Aurora MySQL のマスターユーザーシークレットから取得
 
-詳細は [デプロイ手順](./DEPLOYMENT.md) を参照してください。
+ECS サービスは CPU 使用率に応じて自動スケーリングされます（最小/最大タスク数・目標 CPU は CloudFormation パラメータで変更可能）。詳細は [デプロイ手順](./DEPLOYMENT.md) を参照してください。
 
 ## Database creation
 

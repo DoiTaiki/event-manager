@@ -28,6 +28,12 @@ Metadata:
           - CodeStarConnectionArn
           - EnableEcsExec
       - Label:
+          default: ECS Auto Scaling
+        Parameters:
+          - ECSMinCapacity
+          - ECSMaxCapacity
+          - ECSScalingTargetCpuPercent
+      - Label:
           default: Domain Settings
         Parameters:
           - DomainName
@@ -110,6 +116,25 @@ Parameters:
     AllowedValues:
       - 'yes'
       - 'no'
+  # ECS Auto Scaling
+  ECSMinCapacity:
+    Type: Number
+    Description: 'Minimum number of ECS tasks (auto-scaling lower bound). Must be at least 1.'
+    Default: 2
+    MinValue: 1
+    MaxValue: 50
+  ECSMaxCapacity:
+    Type: Number
+    Description: 'Maximum number of ECS tasks (auto-scaling upper bound).'
+    Default: 4
+    MinValue: 1
+    MaxValue: 50
+  ECSScalingTargetCpuPercent:
+    Type: Number
+    Description: 'Target average CPU utilization (percent) for ECS service auto-scaling. Scaling adjusts task count to keep CPU near this value.'
+    Default: 70
+    MinValue: 1
+    MaxValue: 100
   # Domain Settings
   DomainName:
     Type: String
@@ -1268,7 +1293,7 @@ Resources:
           Weight: 1
       TaskDefinition: !Ref 'ECSTaskDefinition'
       ServiceName: !Ref 'AppName'
-      DesiredCount: !If [UseECRImage, 2, 0]
+      DesiredCount: !If [UseECRImage, !Ref 'ECSMinCapacity', 0]
       AvailabilityZoneRebalancing: ENABLED
       LoadBalancers:
         - ContainerName: !Ref 'AppName'
@@ -1295,6 +1320,32 @@ Resources:
       Tags:
         - Key: Application
           Value: !Ref 'AppName'
+  ECSScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    DependsOn: ECSService
+    Properties:
+      MaxCapacity: !Ref 'ECSMaxCapacity'
+      MinCapacity: !Ref 'ECSMinCapacity'
+      ResourceId: !Sub
+        - 'service/${Cluster}/${Service}'
+        - Cluster: !Ref 'ECSCluster'
+          Service: !GetAtt 'ECSService.Name'
+      RoleARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService'
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+  ECSScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    DependsOn: ECSScalableTarget
+    Properties:
+      PolicyName: !Sub '${AppName}-ecs-cpu-target-tracking'
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref 'ECSScalableTarget'
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: !Ref 'ECSScalingTargetCpuPercent'
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
   CodeBuildServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -1553,6 +1604,9 @@ Outputs:
   ECSServiceName:
     Description: Name of the ECS service deployed by the pipeline
     Value: !Ref 'ECSService'
+  ECSAutoScalingEnabled:
+    Description: ECS service auto-scaling (min/max tasks and CPU target)
+    Value: !Sub 'Min ${ECSMinCapacity}, Max ${ECSMaxCapacity}, Target CPU ${ECSScalingTargetCpuPercent}%'
   DatabaseSecretArn:
     Description: ARN of the Secrets Manager entry containing database credentials
     Value: !GetAtt 'DatabaseCluster.MasterUserSecret.SecretArn'

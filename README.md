@@ -59,7 +59,7 @@ GitHub → CodePipeline → CodeBuild → ECR → ECS
 ### 主要コンポーネント
 
 - **ネットワーク**: VPC、パブリック/プライベートサブネット（マルチAZ）
-- **コンピューティング**: ECS Fargate で Rails アプリケーションを実行（デフォルトで2タスク、マルチAZ構成）
+- **コンピューティング**: ECS Fargate で Rails アプリケーションを実行（マルチAZ構成、後述の自動スケーリングでタスク数を調整）
 - **ロードバランサー**: Application Load Balancer（HTTPS対応）
 - **データベース**: Aurora MySQL Serverless v2（マルチAZ構成）
 - **データベース監視**: CloudWatch Database Insights(Standard) によるパフォーマンス監視
@@ -67,6 +67,17 @@ GitHub → CodePipeline → CodeBuild → ECR → ECS
 - **ストレージ**: ECR（Docker イメージ）、S3（ログ・アーティファクト）
 - **セキュリティ**: Secrets Manager、VPC エンドポイント、セキュリティグループ
 - **運用**: ECS Exec（任意）でタスク内コンテナへ SSM セッション接続可能
+
+### ECS の自動スケーリング
+
+ECS サービスには **Application Auto Scaling** によるターゲット追跡スケーリングが設定されています。
+
+- **メトリクス**: ECS サービスの平均 CPU 使用率（`ECSServiceAverageCPUUtilization`）
+- **目標値**: デフォルト 70%（CloudFormation パラメータ `ECSScalingTargetCpuPercent` で変更可能）
+- **タスク数**: 最小・最大タスク数はパラメータで指定（デフォルトは最小 2、最大 4。`ECSMinCapacity` / `ECSMaxCapacity`）
+- **クールダウン**: スケールイン・スケールアウトともに 60 秒
+
+負荷に応じてタスク数が自動で増減し、目標 CPU 使用率に近づくように調整されます。デプロイ時のパラメータで最小・最大タスク数および目標 CPU を変更できます。詳細は [デプロイ手順](./docs/DEPLOYMENT.md) を参照してください。
 
 ### アーキテクチャ図
 
