@@ -37,6 +37,10 @@ gem "kamal", require: false
 # Add HTTP asset caching/compression and X-Sendfile acceleration to Puma [https://github.com/basecamp/thruster/]
 gem "thruster", require: false
 
+# Action Text の Trix エディタ（XSS 対策のため 2.1.16 以上を明示: GHSA-g9jg-w8vm-g96v）
+# actiontext は ~> 2.1.15 を要求するため、同じ 2.1.x 範囲で最小 2.1.16 に揃える
+gem "action_text-trix", "~> 2.1.16"
+
 # Use Active Storage variants [https://guides.rubyonrails.org/active_storage_overview.html#transforming-images]
 gem "image_processing", "~> 1.2"
 
